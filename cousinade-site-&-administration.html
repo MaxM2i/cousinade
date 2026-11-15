@@ -102,7 +102,7 @@
 <div id="login">
   <div class="card">
     <span class="chip"><span class="dot"></span> Accès privé</span>
-    <h1 style="margin:16px 0 8px">Cousinade <span style="color:var(--acc)">2026</span></h1>
+    <h1 style="margin:16px 0 8px">Cousinade <span style="color:var(--acc)">2027</span></h1>
     <p class="lead" id="loginSub">Bienvenue sur la plateforme familiale. Entrez le mot de passe fourni par les organisateurs.</p>
     <label for="pwd">Mot de passe</label>
     <input type="password" id="pwd" placeholder="••••••••" style="text-align:center; font-size:18px; letter-spacing:.2em"/>
@@ -114,7 +114,7 @@
 <!-- ══════════ APP ══════════ -->
 <div id="app" style="display:none">
 <header><div class="wrap nav">
-  <div class="logo">🔗 Cousinade<span>.fam</span></div>
+  <div class="logo">🔗 Cousinade<span>.Grandclement</span></div>
   <button class="navlink active" data-v="sondage" onclick="go('sondage')">🗓 Sondage date</button>
   <button class="navlink" data-v="accueil" onclick="go('accueil')">Accueil</button>
   <button class="navlink" data-v="menu" onclick="go('menu')">Menu</button>
@@ -144,7 +144,7 @@
 <!-- ACCUEIL -->
 <section class="view" id="v-accueil"><div class="wrap">
   <span class="chip blue" id="chipDate">ÉVÉNEMENT</span>
-  <h1 style="margin:14px 0 10px" id="titleHome">Cousinade 2026</h1>
+  <h1 style="margin:14px 0 10px" id="titleHome">Cousinade 2027</h1>
   <p class="lead" style="max-width:640px" id="leadHome">Rassemblement familial. Indiquez votre menu, votez pour les animations et partagez vos photos — le tout au même endroit, accessible à toute la famille.</p>
   <div style="display:flex; gap:12px; margin-top:22px; flex-wrap:wrap">
     <button class="btn" onclick="go('menu')">Choisir mon menu →</button>
@@ -226,6 +226,7 @@
       <label>Lieu</label><input id="adPlace"/>
       <label>Organisateur</label><input id="adHost"/>
       <label>Mot de passe du site</label><input id="adPwd"/>
+      <label>🔒 Mot de passe administrateur</label><input id="adAdminPwd"/>
       <label>🗓 Dates du sondage (une par ligne, format AAAA-MM-JJ)</label>
       <textarea id="adPollDates" rows="4"></textarea>
     </div>
@@ -254,7 +255,7 @@
   <div class="card" style="margin-top:24px">
     <h3>🧩 Schéma de la base de données</h3>
 <pre style="color:var(--muted); font-size:12.5px; overflow:auto; margin-top:10px">{
-  "event":   { "title", "date", "hours", "place", "host", "password" },
+  "event":   { "title", "date", "hours", "place", "host", "password", "adminPassword" },
   "poll":    { "dates": [], "votes": { "date": ["prénom", …] } },
   "menu":    { "entrees":[], "plats":[], "desserts":[], "fromages":[] },
   "options": [ { "id", "name", "desc", "type" } ],
@@ -265,7 +266,7 @@
   </div>
 </div></section>
 
-<footer>Cousinade 2026 · Plateforme familiale privée · Accessible à tous les âges ❤</footer>
+<footer>Cousinade 2027 · Plateforme familiale privée · Accessible à tous les âges ❤</footer>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -274,7 +275,7 @@
 /* ═════════ BASE DE DONNÉES (localStorage) ═════════ */
 const DEFAULT_DB = {
   event:{ title:"Cousinade 2027", date:"2027-07-03", hours:"12:00 → 23:00",
-    place:"Fontaines-sur-Saône", host:"Julien", password:"GloireAmax" },
+    place:"Fontaines-sur-Saône", host:"Julien", password:"cousinade2027", adminPassword:"GloireAmax" },
   poll:{ dates:["2027-06-05","2027-06-12","2027-06-19","2027-06-26","2027-07-03","2027-07-10"], votes:{} },
   menu:{
     entrees:["Friture d'éperlans sauce tartare",
@@ -321,6 +322,11 @@ function openApp(){
 /* ═════════ NAVIGATION ═════════ */
 function go(v){
   /* Le sondage de date est obligatoire avant d'accéder au reste du site */
+  if(v==='admin' && sessionStorage.getItem('cousinade_admin')!=='1'){
+    const p=prompt('🔒 Console d\'administration\nEntrez le mot de passe administrateur :');
+    if(p===DB.event.adminPassword){ sessionStorage.setItem('cousinade_admin','1'); toast('✓ Accès administrateur accordé'); }
+    else{ toast(p===null?'Accès admin annulé':'✗ Mot de passe administrateur incorrect'); v='sondage'; }
+  }
   if(v!=='sondage' && v!=='admin' && !sessionStorage.getItem('cousinade_voted')){
     toast('🗳 Votez d\'abord pour la date, puis accédez au reste du site !');
     v='sondage';
@@ -485,7 +491,7 @@ function vote(id){
 /* ---- ADMIN ---- */
 function renderAdmin(){
   const e=DB.event;
-  adTitle.value=e.title; adDate.value=e.date; adHours.value=e.hours; adPlace.value=e.place; adHost.value=e.host; adPwd.value=e.password;
+  adTitle.value=e.title; adDate.value=e.date; adHours.value=e.hours; adPlace.value=e.place; adHost.value=e.host; adPwd.value=e.password; adAdminPwd.value=e.adminPassword;
   adPollDates.value=DB.poll.dates.join('\n');
   const lists=[["entrees","Entrées"],["plats","Plats principaux"],["desserts","Desserts"],["fromages","Supplément fromages"]];
   document.getElementById('adMenuLists').innerHTML=lists.map(([k,l])=>`
@@ -508,7 +514,7 @@ function renderAdminOpts(){
 function addAdminOpt(){ DB.options.push({id:uid(),name:'',desc:'',type:'anim'}); renderAdminOpts(); }
 function delOpt(i){ DB.options.splice(i,1); renderAdminOpts(); }
 function saveAdmin(){
-  DB.event={title:adTitle.value, date:adDate.value, hours:adHours.value, place:adPlace.value, host:adHost.value, password:adPwd.value||DB.event.password};
+  DB.event={title:adTitle.value, date:adDate.value, hours:adHours.value, place:adPlace.value, host:adHost.value, password:adPwd.value||DB.event.password, adminPassword:adAdminPwd.value||DB.event.adminPassword};
   DB.poll.dates=adPollDates.value.split('\n').map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
   document.querySelectorAll('[data-menu]').forEach(t=>{ DB.menu[t.dataset.menu]=t.value.split('\n').map(x=>x.trim()).filter(Boolean); });
   DB.options.forEach((o,i)=>{
