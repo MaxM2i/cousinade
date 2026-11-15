@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cousinade — Plateforme Familiale</title>
+<style>
+  :root{
+    --bg:#0b0f14; --bg2:#11161d; --panel:#151c25; --panel2:#1b2430;
+    --line:#243040; --txt:#e8eef5; --muted:#8fa0b3;
+    --acc:#4fd1c5; --acc2:#63b3ed; --warn:#f6ad55; --ok:#68d391; --bad:#fc8181;
+    --radius:14px;
+    font-family:"Segoe UI", Inter, system-ui, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--txt); min-height:100vh}
+  body::before{content:""; position:fixed; inset:0; pointer-events:none;
+    background:radial-gradient(900px 400px at 80% -10%, rgba(79,209,197,.08), transparent),
+               radial-gradient(700px 400px at 0% 100%, rgba(99,179,237,.07), transparent);}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 20px}
+  .chip{display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--acc); border:1px solid var(--line);
+    background:var(--panel); border-radius:999px; padding:5px 12px}
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok); box-shadow:0 0 8px var(--ok)}
+  .chip.blue{color:var(--acc2)} .chip.orange{color:var(--warn)}
+  h1{font-size:clamp(30px,5vw,52px); line-height:1.1; font-weight:700}
+  h2{font-size:clamp(22px,3vw,30px); font-weight:700}
+  h3{font-size:17px; font-weight:600}
+  p.lead{color:var(--muted); font-size:16px; line-height:1.6}
+  .btn{display:inline-flex; align-items:center; gap:8px; cursor:pointer; border:none;
+    border-radius:10px; padding:12px 20px; font-size:14px; font-weight:600;
+    background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#06201f; transition:.2s}
+  .btn:hover{filter:brightness(1.1); transform:translateY(-1px)}
+  .btn.ghost{background:var(--panel); color:var(--txt); border:1px solid var(--line)}
+  .btn.small{padding:8px 14px; font-size:13px}
+  .btn.danger{background:var(--panel); color:var(--bad); border:1px solid var(--line)}
+  input,select,textarea{width:100%; background:var(--bg2); border:1px solid var(--line);
+    color:var(--txt); border-radius:10px; padding:12px 14px; font-size:15px; outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+  label{display:block; font-size:12px; text-transform:uppercase; letter-spacing:.1em;
+    color:var(--muted); margin:14px 0 6px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:22px}
+  .grid{display:grid; gap:16px}
+  header{position:sticky; top:0; z-index:50; backdrop-filter:blur(12px);
+    background:rgba(11,15,20,.85); border-bottom:1px solid var(--line)}
+  .nav{display:flex; align-items:center; gap:8px; padding:14px 0; flex-wrap:wrap}
+  .logo{font-weight:800; font-size:18px; margin-right:auto; display:flex; align-items:center; gap:10px}
+  .logo span{color:var(--acc)}
+  .navlink{color:var(--muted); text-decoration:none; font-size:14px; padding:8px 14px;
+    border-radius:8px; cursor:pointer; border:none; background:none; font-weight:500}
+  .navlink:hover{color:var(--txt); background:var(--panel)}
+  .navlink.active{color:var(--acc); background:var(--panel)}
+  .view{display:none; padding:36px 0 80px; animation:fade .3s}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+  /* login */
+  #login{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px}
+  #login .card{max-width:420px; width:100%; text-align:center}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin:26px 0}
+  .stat{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:18px}
+  .stat b{font-size:26px; color:var(--acc); display:block}
+  .stat span{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em}
+  /* menu options */
+  .opt{background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    cursor:pointer; transition:.15s; font-size:14px; line-height:1.45; text-align:left; color:var(--txt)}
+  .opt:hover{border-color:var(--acc2)}
+  .opt.sel{border-color:var(--acc); background:rgba(79,209,197,.1); box-shadow:0 0 0 1px var(--acc)}
+  .optgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-top:10px}
+  .section{margin-bottom:26px}
+  .section .head{display:flex; align-items:center; gap:10px; margin-bottom:4px}
+  .tag{font-size:10px; letter-spacing:.12em; color:var(--muted); text-transform:uppercase;
+    border:1px solid var(--line); padding:3px 8px; border-radius:6px}
+  /* photos */
+  .phgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px}
+  .ph{position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--line);
+    aspect-ratio:4/3; background:var(--bg2); display:flex; align-items:center; justify-content:center}
+  .ph img{width:100%; height:100%; object-fit:cover}
+  .ph .who{position:absolute; bottom:0; left:0; right:0; padding:8px 10px; font-size:12px;
+    background:linear-gradient(transparent, rgba(0,0,0,.8))}
+  /* admin */
+  .admin-row{display:flex; gap:10px; align-items:center; margin-bottom:10px}
+  .admin-row input{flex:1}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--panel2);
+    border:1px solid var(--acc); color:var(--txt); padding:12px 22px; border-radius:10px;
+    font-size:14px; opacity:0; transition:.3s; z-index:100; pointer-events:none}
+  .toast.show{opacity:1}
+  .bar{height:8px; background:var(--bg2); border-radius:6px; overflow:hidden; margin-top:6px}
+  .bar i{display:block; height:100%; background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  .steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-top:20px}
+  .step{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:18px}
+  .step .n{font-size:12px; color:var(--acc); letter-spacing:.15em}
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line)}
+  th{color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.1em}
+  footer{border-top:1px solid var(--line); padding:24px 0; color:var(--muted); font-size:13px; text-align:center}
+  @media(max-width:640px){ .navlink{padding:8px 10px; font-size:13px} }
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login">
+  <div class="card">
+    <span class="chip"><span class="dot"></span> Accès privé</span>
+    <h1 style="margin:16px 0 8px">Cousinade <span style="color:var(--acc)">2026</span></h1>
+    <p class="lead" id="loginSub">Bienvenue sur la plateforme familiale. Entrez le mot de passe fourni par les organisateurs.</p>
+    <label for="pwd">Mot de passe</label>
+    <input type="password" id="pwd" placeholder="••••••••" style="text-align:center; font-size:18px; letter-spacing:.2em"/>
+    <button class="btn" style="width:100%; margin-top:18px; justify-content:center" onclick="doLogin()">Entrer →</button>
+    <p id="loginErr" style="color:var(--bad); font-size:13px; margin-top:10px; display:none">Mot de passe incorrect, réessayez.</p>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app" style="display:none">
+<header><div class="wrap nav">
+  <div class="logo">🔗 Cousinade<span>.fam</span></div>
+  <button class="navlink active" data-v="accueil" onclick="go('accueil')">Accueil</button>
+  <button class="navlink" data-v="menu" onclick="go('menu')">Menu</button>
+  <button class="navlink" data-v="photos" onclick="go('photos')">Photos</button>
+  <button class="navlink" data-v="options" onclick="go('options')">Animations</button>
+  <button class="navlink" data-v="admin" onclick="go('admin')">⚙ Admin</button>
+  <button class="navlink" onclick="logout()">Déconnexion</button>
+</div></header>
+
+<!-- ACCUEIL -->
+<section class="view active" id="v-accueil"><div class="wrap">
+  <span class="chip blue" id="chipDate">ÉVÉNEMENT</span>
+  <h1 style="margin:14px 0 10px" id="titleHome">Cousinade 2026</h1>
+  <p class="lead" style="max-width:640px" id="leadHome">Rassemblement familial. Indiquez votre menu, votez pour les animations et partagez vos photos — le tout au même endroit, accessible à toute la famille.</p>
+  <div style="display:flex; gap:12px; margin-top:22px; flex-wrap:wrap">
+    <button class="btn" onclick="go('menu')">Choisir mon menu →</button>
+    <button class="btn ghost" onclick="go('photos')">Voir les photos</button>
+  </div>
+  <div class="stats" id="statsHome"></div>
+  <div class="card">
+    <div class="head" style="display:flex; gap:10px; align-items:center; margin-bottom:8px">
+      <span class="tag">infos pratiques</span>
+    </div>
+    <table id="tblInfos"></table>
+  </div>
+  <h2 style="margin:40px 0 6px">Comment ça marche</h2>
+  <div class="steps">
+    <div class="step"><div class="n">01</div><h3>Connectez-vous</h3><p class="lead" style="font-size:13px">Avec le mot de passe communiqué par les organisateurs.</p></div>
+    <div class="step"><div class="n">02</div><h3>Indiquez votre foyer</h3><p class="lead" style="font-size:13px">Votre prénom et ceux de votre famille / conjoint.</p></div>
+    <div class="step"><div class="n">03</div><h3>Choisissez le menu</h3><p class="lead" style="font-size:13px">Entrée, plat, dessert, vin, fromages.</p></div>
+    <div class="step"><div class="n">04</div><h3>Votez & partagez</h3><p class="lead" style="font-size:13px">Babyfoot, fléchettes, tireuse à bière… et vos photos !</p></div>
+  </div>
+</div></section>
+
+<!-- MENU -->
+<section class="view" id="v-menu"><div class="wrap">
+  <span class="chip">Module · Restauration</span>
+  <h2 style="margin:14px 0 6px">Choix du menu</h2>
+  <p class="lead">Sélectionnez les choix pour votre foyer, puis confirmez.</p>
+  <div class="grid" style="grid-template-columns:1fr 1fr; margin:20px 0" id="famInputs">
+    <div><label>Votre prénom</label><input id="inPrenom" placeholder="Ex : Marie"/></div>
+    <div><label>Prénoms famille / conjoint</label><input id="inFamille" placeholder="Ex : Paul, Léa, Tom"/></div>
+  </div>
+  <div id="menuSections"></div>
+  <div style="display:flex; gap:12px; flex-wrap:wrap">
+    <button class="btn" onclick="confirmMenu()">✓ Confirmer mes choix</button>
+    <button class="btn ghost" onclick="resetMenu()">Réinitialiser</button>
+  </div>
+  <div class="card" style="margin-top:30px">
+    <h3>📊 Réponses des familles</h3>
+    <div id="recapMenu" style="margin-top:12px"></div>
+  </div>
+</div></section>
+
+<!-- PHOTOS -->
+<section class="view" id="v-photos"><div class="wrap">
+  <span class="chip">Module · Souvenirs</span>
+  <h2 style="margin:14px 0 6px">Photos partagées</h2>
+  <p class="lead">Ajoutez vos photos de la cousinade, visibles par toute la famille.</p>
+  <div class="card" style="margin:20px 0">
+    <div class="grid" style="grid-template-columns:2fr 1fr auto; align-items:end">
+      <div><label>URL de la photo</label><input id="phUrl" placeholder="https://… (ou data:image après import)"/></div>
+      <div><label>Votre prénom</label><input id="phWho" placeholder="Ex : Paul"/></div>
+      <button class="btn" onclick="addPhoto()">+ Ajouter</button>
+    </div>
+    <div style="margin-top:12px"><label>Ou importer depuis l'appareil</label>
+      <input type="file" id="phFile" accept="image/*" onchange="importPhoto(event)"/></div>
+  </div>
+  <div class="phgrid" id="phGrid"></div>
+</div></section>
+
+<!-- OPTIONS / ANIMATIONS -->
+<section class="view" id="v-options"><div class="wrap">
+  <span class="chip orange">Module · Animations</span>
+  <h2 style="margin:14px 0 6px">Animations & options</h2>
+  <p class="lead">Dites si votre foyer est intéressé. Les coûts sont répartis entre les participants intéressés.</p>
+  <div id="optsList" style="margin-top:22px; display:grid; gap:14px"></div>
+</div></section>
+
+<!-- ADMIN -->
+<section class="view" id="v-admin"><div class="wrap">
+  <span class="chip"><span class="dot"></span> Console d'administration</span>
+  <h2 style="margin:14px 0 6px">Paramètres de l'événement</h2>
+  <p class="lead">Modifiez les informations, le menu et les options. Tout est sauvegardé localement (base de données JSON exportable).</p>
+
+  <div class="grid" style="grid-template-columns:1fr 1fr; margin-top:22px">
+    <div class="card">
+      <h3>📍 Événement</h3>
+      <label>Titre</label><input id="adTitle"/>
+      <label>Date</label><input id="adDate" type="date"/>
+      <label>Horaires</label><input id="adHours" placeholder="12:00 → 23:00"/>
+      <label>Lieu</label><input id="adPlace"/>
+      <label>Organisateur</label><input id="adHost"/>
+      <label>Mot de passe du site</label><input id="adPwd"/>
+    </div>
+    <div class="card">
+      <h3>🍽 Éléments du menu</h3>
+      <p class="lead" style="font-size:13px">Modifiez librement les propositions. Une ligne vide sera ignorée.</p>
+      <div id="adMenuLists"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>🎯 Options supplémentaires (vin, babyfoot, tireuse…)</h3>
+    <p class="lead" style="font-size:13px">Chaque option : nom, description / coût, et type (vin ou animation).</p>
+    <div id="adOpts"></div>
+    <button class="btn ghost small" onclick="addAdminOpt()">+ Ajouter une option</button>
+  </div>
+
+  <div style="display:flex; gap:12px; margin-top:18px; flex-wrap:wrap">
+    <button class="btn" onclick="saveAdmin()">💾 Enregistrer</button>
+    <button class="btn ghost" onclick="exportDB()">⬇ Exporter la base (JSON)</button>
+    <button class="btn ghost" onclick="document.getElementById('importDB').click()">⬆ Importer</button>
+    <input type="file" id="importDB" accept=".json" style="display:none" onchange="importDB(event)"/>
+    <button class="btn danger" onclick="resetDB()">Réinitialiser tout</button>
+  </div>
+
+  <div class="card" style="margin-top:24px">
+    <h3>🧩 Schéma de la base de données</h3>
+<pre style="color:var(--muted); font-size:12.5px; overflow:auto; margin-top:10px">{
+  "event":   { "title", "date", "hours", "place", "host", "password" },
+  "menu":    { "entrees":[], "plats":[], "desserts":[], "fromages":[] },
+  "options": [ { "id", "name", "desc", "type" } ],
+  "families":[ { "id", "prenom", "membres", "choix": { "entree","plat","dessert","fromage","vin" } } ],
+  "votes":   { "optionId": [ "prenom", … ] },
+  "photos":  [ { "id", "url", "who" } ]
+}</pre>
+  </div>
+</div></section>
+
+<footer>Cousinade 2026 · Plateforme familiale privée · Accessible à tous les âges ❤</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═════════ BASE DE DONNÉES (localStorage) ═════════ */
+const DEFAULT_DB = {
+  event:{ title:"Cousinade 2026", date:"2026-07-04", hours:"12:00 → 23:00",
+    place:"Fontaines-sur-Saône", host:"Julien", password:"cousinade2026" },
+  menu:{
+    entrees:["Friture d'éperlans sauce tartare",
+             "Verticale de légumes confits et tomates, stracciatella crémeuse et chorizo grillé",
+             "Charlotte de Piquillos et rillette de thon aux aromates, crumble au parmesan",
+             "Plat végétarien"],
+    plats:["Grenouilles (+4€)",
+           "Pastilla d'épaule de cochon braisé 5h, épices douces, pomme paillasson, jus brun, miel, citron",
+           "Risotto de moules et crevettes, légumes, jus de coquillage crémeux au safran",
+           "Plat végétarien"],
+    desserts:["Feuillantine au chocolat et coulis fruits rouges","Coupe glacée façon vacherin"],
+    fromages:["Assiette de fromages secs (+6€)"]
+  },
+  options:[
+    {id:"vin",   name:"Préférence pour le vin", desc:"Blanc · Rosé · Rouge", type:"vin"},
+    {id:"baby",  name:"Babyfoot + cible de fléchettes", desc:"90€ à répartir, en attente confirmation du restaurant", type:"anim"},
+    {id:"biere", name:"Tireuse à bière", desc:"380€ à répartir", type:"anim"}
+  ],
+  families:[], votes:{}, photos:[
+    {id:"p0", url:"", who:"Photo de l'année précédente"}
+  ]
+};
+let DB = load();
+function load(){ try{ const s=localStorage.getItem('cousinade_db'); return s? JSON.parse(s): JSON.parse(JSON.stringify(DEFAULT_DB)); }catch(e){ return JSON.parse(JSON.stringify(DEFAULT_DB)); } }
+function save(){ localStorage.setItem('cousinade_db', JSON.stringify(DB)); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ═════════ LOGIN ═════════ */
+function doLogin(){
+  const v=document.getElementById('pwd').value;
+  if(v===DB.event.password){ sessionStorage.setItem('cousinade_ok','1'); openApp(); }
+  else{ document.getElementById('loginErr').style.display='block'; }
+}
+document.getElementById('pwd').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+function logout(){ sessionStorage.removeItem('cousinade_ok'); location.reload(); }
+function openApp(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  renderAll();
+}
+
+/* ═════════ NAVIGATION ═════════ */
+function go(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.getElementById('v-'+v).classList.add('active');
+  document.querySelectorAll('.navlink').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
+  window.scrollTo({top:0});
+  if(v==='menu') renderMenu(); if(v==='photos') renderPhotos();
+  if(v==='options') renderOptions(); if(v==='admin') renderAdmin(); if(v==='accueil') renderHome();
+}
+
+/* ═════════ RENDU ═════════ */
+function renderAll(){ renderHome(); renderMenu(); renderPhotos(); renderOptions(); renderAdmin(); }
+
+function renderHome(){
+  const e=DB.event;
+  document.getElementById('titleHome').textContent=e.title;
+  document.getElementById('leadHome').textContent=
+    `Rendez-vous le ${new Date(e.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} à ${e.place}. Indiquez votre menu, votez pour les animations et partagez vos photos.`;
+  document.getElementById('chipDate').textContent =
+    new Date(e.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short',year:'numeric'}).toUpperCase()+' · '+e.hours;
+  const nbFam=DB.families.length, nbVotes=Object.values(DB.votes).reduce((a,v)=>a+v.length,0);
+  document.getElementById('statsHome').innerHTML=`
+    <div class="stat"><b>${nbFam}</b><span>familles inscrites</span></div>
+    <div class="stat"><b>${DB.menu.entrees.length+DB.menu.plats.length+DB.menu.desserts.length}</b><span>choix au menu</span></div>
+    <div class="stat"><b>${DB.options.length}</b><span>options & animations</span></div>
+    <div class="stat"><b>${DB.photos.length}</b><span>photos partagées</span></div>`;
+  document.getElementById('tblInfos').innerHTML=`
+    <tr><th>Date</th><td>${new Date(e.date+'T12:00').toLocaleDateString('fr-FR',{dateStyle:'long'})} · ${esc(e.hours)}</td></tr>
+    <tr><th>Lieu</th><td>📍 ${esc(e.place)}</td></tr>
+    <tr><th>Organisateur</th><td>${esc(e.host)}</td></tr>
+    <tr><th>Accès</th><td>Sur invitation — mot de passe communiqué par les organisateurs</td></tr>`;
+}
+
+/* ---- MENU ---- */
+function renderMenu(){
+  const m=DB.menu, secs=[["entree","Choix de l'entrée",m.entrees],["plat","Choix du plat principal",m.plats],
+    ["dessert","Choix du dessert",m.desserts],["fromage","Supplément fromages",m.fromages]];
+  const my=DB.families.find(f=>f.prenom===(sessionStorage.getItem('cousinade_prenom')||''));
+  document.getElementById('inPrenom').value=my?.prenom||''; document.getElementById('inFamille').value=my?.membres||'';
+  document.getElementById('menuSections').innerHTML=secs.map(([k,label,items])=>`
+    <div class="section"><div class="head"><h3>${label}</h3><span class="tag">${items.length} choix</span></div>
+      <div class="optgrid">${items.map(it=>`
+        <button class="opt ${my?.choix?.[k]===it?'sel':''}" data-k="${k}" data-v="${esc(it)}" onclick="pick(this)">${esc(it)}</button>`).join('')}
+      </div></div>`).join('');
+  renderRecap();
+}
+function pick(btn){
+  const k=btn.dataset.k;
+  document.querySelectorAll(`.opt[data-k="${k}"]`).forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+function confirmMenu(){
+  const prenom=document.getElementById('inPrenom').value.trim();
+  if(!prenom) return toast("Indiquez d'abord votre prénom 🙂");
+  const choix={};
+  ['entree','plat','dessert','fromage'].forEach(k=>{
+    const sel=document.querySelector(`.opt[data-k="${k}"].sel`); if(sel) choix[k]=sel.dataset.v;
+  });
+  let f=DB.families.find(f=>f.prenom===prenom);
+  if(f){ f.choix=choix; f.membres=document.getElementById('inFamille').value.trim(); }
+  else DB.families.push({id:uid(), prenom, membres:document.getElementById('inFamille').value.trim(), choix});
+  sessionStorage.setItem('cousinade_prenom',prenom);
+  save(); renderRecap(); renderHome(); toast('✓ Choix enregistrés, merci !');
+}
+function resetMenu(){ renderMenu(); toast('Formulaire réinitialisé'); }
+function renderRecap(){
+  const r=document.getElementById('recapMenu');
+  if(!DB.families.length){ r.innerHTML='<p class="lead">Aucune réponse pour le moment — soyez les premiers !</p>'; return; }
+  r.innerHTML=`<table><tr><th>Foyer</th><th>Entrée</th><th>Plat</th><th>Dessert</th><th>Fromages</th></tr>`+
+    DB.families.map(f=>`<tr><td><b>${esc(f.prenom)}</b><br><small style="color:var(--muted)">${esc(f.membres)}</small></td>
+      <td>${esc(f.choix?.entree||'—')}</td><td>${esc(f.choix?.plat||'—')}</td>
+      <td>${esc(f.choix?.dessert||'—')}</td><td>${esc(f.choix?.fromage||'—')}</td></tr>`).join('')+'</table>';
+}
+
+/* ---- PHOTOS ---- */
+function renderPhotos(){
+  document.getElementById('phGrid').innerHTML=DB.photos.map(p=>`
+    <div class="ph">${p.url?`<img src="${esc(p.url)}" alt="photo"/>`:'<span style="color:var(--muted);font-size:13px">📸 '+esc(p.who)+'</span>'}
+      <div class="who">${esc(p.who)}</div></div>`).join('');
+}
+function addPhoto(){
+  const url=document.getElementById('phUrl').value.trim(), who=document.getElementById('phWho').value.trim()||'Anonyme';
+  if(!url) return toast("Collez une URL ou importez un fichier");
+  DB.photos.unshift({id:uid(),url,who}); save(); renderPhotos();
+  document.getElementById('phUrl').value=''; toast('✓ Photo ajoutée');
+}
+function importPhoto(ev){
+  const file=ev.target.files[0]; if(!file) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ DB.photos.unshift({id:uid(),url:rd.result,who:document.getElementById('phWho').value.trim()||'Anonyme'});
+    save(); renderPhotos(); toast('✓ Photo importée'); };
+  rd.readAsDataURL(file);
+}
+
+/* ---- OPTIONS ---- */
+function renderOptions(){
+  document.getElementById('optsList').innerHTML=DB.options.map(o=>{
+    const voters=DB.votes[o.id]||[], me=sessionStorage.getItem('cousinade_prenom');
+    const mine=voters.includes(me);
+    return `<div class="card"><div style="display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:center">
+      <div><h3>${esc(o.name)} <span class="tag">${o.type==='vin'?'vin':'animation'}</span></h3>
+        <p class="lead" style="font-size:13px">${esc(o.desc)}</p></div>
+      ${o.type==='anim'?`<button class="btn ${mine?'ghost':''}" onclick="vote('${o.id}')">${mine?'✓ Intéressé':'Je suis intéressé'}</button>`:''}
+    </div>
+    ${o.type==='anim'?`<div style="margin-top:10px"><div class="bar"><i style="width:${Math.min(100,voters.length*12)}%"></i></div>
+      <small style="color:var(--muted)">${voters.length} foyer(s) intéressé(s)${voters.length?' — '+voters.map(esc).join(', '):''}</small></div>`:''}
+    </div>`;
+  }).join('');
+}
+function vote(id){
+  const me=sessionStorage.getItem('cousinade_prenom');
+  if(!me) return toast("Indiquez d'abord votre prénom dans le module Menu");
+  DB.votes[id]=DB.votes[id]||[];
+  const i=DB.votes[id].indexOf(me);
+  i>=0? DB.votes[id].splice(i,1) : DB.votes[id].push(me);
+  save(); renderOptions();
+}
+
+/* ---- ADMIN ---- */
+function renderAdmin(){
+  const e=DB.event;
+  adTitle.value=e.title; adDate.value=e.date; adHours.value=e.hours; adPlace.value=e.place; adHost.value=e.host; adPwd.value=e.password;
+  const lists=[["entrees","Entrées"],["plats","Plats principaux"],["desserts","Desserts"],["fromages","Supplément fromages"]];
+  document.getElementById('adMenuLists').innerHTML=lists.map(([k,l])=>`
+    <label>${l}</label>
+    <textarea rows="3" data-menu="${k}">${esc(DB.menu[k].join('\n'))}</textarea>`).join('');
+  renderAdminOpts();
+}
+function renderAdminOpts(){
+  document.getElementById('adOpts').innerHTML=DB.options.map((o,i)=>`
+    <div class="admin-row">
+      <input data-o="${i}" data-f="name" value="${esc(o.name)}" placeholder="Nom"/>
+      <input data-o="${i}" data-f="desc" value="${esc(o.desc)}" placeholder="Description / coût" style="flex:1.4"/>
+      <select data-o="${i}" data-f="type" style="width:130px">
+        <option value="anim" ${o.type==='anim'?'selected':''}>Animation</option>
+        <option value="vin" ${o.type==='vin'?'selected':''}>Vin</option>
+      </select>
+      <button class="btn danger small" onclick="delOpt(${i})">✕</button>
+    </div>`).join('');
+}
+function addAdminOpt(){ DB.options.push({id:uid(),name:'',desc:'',type:'anim'}); renderAdminOpts(); }
+function delOpt(i){ DB.options.splice(i,1); renderAdminOpts(); }
+function saveAdmin(){
+  DB.event={title:adTitle.value, date:adDate.value, hours:adHours.value, place:adPlace.value, host:adHost.value, password:adPwd.value||DB.event.password};
+  document.querySelectorAll('[data-menu]').forEach(t=>{ DB.menu[t.dataset.menu]=t.value.split('\n').map(x=>x.trim()).filter(Boolean); });
+  DB.options.forEach((o,i)=>{
+    document.querySelectorAll(`[data-o="${i}"]`).forEach(inp=> o[inp.dataset.f]=inp.value);
+  });
+  save(); renderAll(); toast('✓ Modifications enregistrées');
+}
+function exportDB(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='cousinade-bdd.json'; a.click();
+}
+function importDB(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ DB=JSON.parse(rd.result); save(); renderAll(); toast('✓ Base importée'); }catch(e){ toast('Fichier JSON invalide'); } };
+  rd.readAsText(f);
+}
+function resetDB(){ if(confirm('Réinitialiser toutes les données ?')){ localStorage.removeItem('cousinade_db'); DB=load(); renderAll(); toast('Base réinitialisée'); } }
+
+/* ═════════ INIT ═════════ */
+if(sessionStorage.getItem('cousinade_ok')) openApp();
+</script>
+</body>
+</html>
