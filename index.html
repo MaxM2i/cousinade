@@ -128,11 +128,20 @@
 <section class="view active" id="v-sondage"><div class="wrap">
   <span class="chip"><span class="dot"></span> Sondage en cours</span>
   <h2 style="margin:14px 0 6px">Quand aura lieu la prochaine cousinade ? 🗓</h2>
-  <p class="lead">Été 2027 — votez pour le(s) week-end(s) qui vous conviennent parmi les 4 week-ends de juin et les 2 premiers de juillet. Le reste du site s'ouvrira après votre vote !</p>
+  <p class="lead">Été 2027 — sélectionnez tous les week-ends qui conviennent à votre foyer parmi les 4 week-ends de juin et les 2 premiers de juillet. Le reste du site s'ouvrira après votre vote !</p>
+  <p class="lead" id="pollButoir" style="color:var(--warn); font-size:13px"></p>
   <div class="grid" style="grid-template-columns:1fr 1fr; margin:20px 0">
+    <div><label>Nom de famille</label><input id="pollNom" value="Grandclement"/></div>
     <div><label>Votre prénom</label><input id="pollPrenom" placeholder="Ex : Marie"/></div>
-    <div><label>Prénoms famille / conjoint (facultatif)</label><input id="pollFamille" placeholder="Ex : Paul, Léa"/></div>
   </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div><label>Prénom du / de la conjoint·e (facultatif)</label><input id="pollConjoint" placeholder="Ex : Paul"/></div>
+    <div><label>E-mail pour les notifications (facultatif)</label><input id="pollEmail" type="email" placeholder="Ex : marie@email.fr"/></div>
+  </div>
+  <label>Membres du foyer</label>
+  <div id="enfantsBox"></div>
+  <button class="btn ghost small" style="margin-top:6px" onclick="addEnfant()">+ Ajouter un enfant</button>
+  <label style="margin-top:20px">Week-ends qui conviennent (plusieurs choix possibles)</label>
   <div id="pollList" style="display:grid; gap:12px"></div>
   <button class="btn" style="margin-top:20px" onclick="confirmPoll()">✓ Voter</button>
   <div class="card" style="margin-top:28px">
@@ -170,10 +179,12 @@
 <section class="view" id="v-menu"><div class="wrap">
   <span class="chip">Module · Restauration</span>
   <h2 style="margin:14px 0 6px">Choix du menu</h2>
-  <p class="lead">Sélectionnez les choix pour votre foyer, puis confirmez.</p>
-  <div class="grid" style="grid-template-columns:1fr 1fr; margin:20px 0" id="famInputs">
-    <div><label>Votre prénom</label><input id="inPrenom" placeholder="Ex : Marie"/></div>
-    <div><label>Prénoms famille / conjoint</label><input id="inFamille" placeholder="Ex : Paul, Léa, Tom"/></div>
+  <p class="lead">Sélectionnez les choix pour votre foyer, puis confirmez. Chaque membre (conjoint·e, enfants) peut avoir son propre choix.</p>
+  <p class="lead" id="menuButoir" style="color:var(--warn); font-size:13px"></p>
+  <div class="card" style="margin:20px 0">
+    <label style="margin-top:0">👤 Pour quel membre du foyer ?</label>
+    <select id="memberSel" onchange="renderMenu()"></select>
+    <p class="lead" style="font-size:12px; margin-top:8px">Renseignez d'abord votre foyer dans le sondage de date (onglet 🗓) pour voir apparaître le conjoint et les enfants ici.</p>
   </div>
   <div id="menuSections"></div>
   <div style="display:flex; gap:12px; flex-wrap:wrap">
@@ -229,6 +240,7 @@
       <label>🔒 Mot de passe administrateur</label><input id="adAdminPwd"/>
       <label>🗓 Dates du sondage (une par ligne, format AAAA-MM-JJ)</label>
       <textarea id="adPollDates" rows="4"></textarea>
+      <label>⏳ Date butoir de validation des menus</label><input id="adButoir" type="date"/>
     </div>
     <div class="card">
       <h3>🍽 Éléments du menu</h3>
@@ -256,7 +268,7 @@
     <h3>🧩 Schéma de la base de données</h3>
 <pre style="color:var(--muted); font-size:12.5px; overflow:auto; margin-top:10px">{
   "event":   { "title", "date", "hours", "place", "host", "password", "adminPassword" },
-  "poll":    { "dates": [], "votes": { "date": ["prénom", …] } },
+  "poll":    { "dates": [], "butoir", "votes": { "[prénom, nom]": ["date", …] } },
   "menu":    { "entrees":[], "plats":[], "desserts":[], "fromages":[] },
   "options": [ { "id", "name", "desc", "type" } ],
   "families":[ { "id", "prenom", "membres", "choix": { "entree","plat","dessert","fromage","vin" } } ],
@@ -276,7 +288,7 @@
 const DEFAULT_DB = {
   event:{ title:"Cousinade 2027", date:"2027-07-03", hours:"12:00 → 23:00",
     place:"Fontaines-sur-Saône", host:"Julien", password:"cousinade2027", adminPassword:"GloireAmax" },
-  poll:{ dates:["2027-06-05","2027-06-12","2027-06-19","2027-06-26","2027-07-03","2027-07-10"], votes:{} },
+  poll:{ dates:["2027-06-05","2027-06-12","2027-06-19","2027-06-26","2027-07-03","2027-07-10"], votes:{}, butoir:"2027-05-01" },
   menu:{
     entrees:["Friture d'éperlans sauce tartare",
              "Verticale de légumes confits et tomates, stracciatella crémeuse et chorizo grillé",
@@ -298,6 +310,8 @@ const DEFAULT_DB = {
     {id:"p0", url:"", who:"Photo de l'année précédente"}
   ]
 };
+/* menu enfant proposé en premier pour les enfants */
+const MENU_ENFANT = "Menu enfant (nuggets / steak haché, frites, glace)";
 let DB = load();
 function load(){ try{ const s=localStorage.getItem('cousinade_db'); return s? JSON.parse(s): JSON.parse(JSON.stringify(DEFAULT_DB)); }catch(e){ return JSON.parse(JSON.stringify(DEFAULT_DB)); } }
 function save(){ localStorage.setItem('cousinade_db', JSON.stringify(DB)); }
@@ -345,15 +359,33 @@ function renderAll(){ renderPoll(); renderHome(); renderMenu(); renderPhotos(); 
 
 /* ---- SONDAGE DATE ---- */
 const fmtDate = d => new Date(d+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+let famMembers=[]; // [{name, enfant}]
 function renderPoll(){
   const list=document.getElementById('pollList'); if(!list) return;
-  document.getElementById('pollPrenom').value=sessionStorage.getItem('cousinade_prenom')||'';
+  const my=DB.families.find(f=>f.prenom===(sessionStorage.getItem('cousinade_prenom')||'')&&f.nom===document.getElementById('pollNom').value.trim());
+  if(my){ pollNom.value=my.nom||'Grandclement'; pollPrenom.value=my.prenom||''; pollConjoint.value=my.conjoint||''; pollEmail.value=my.email||'';
+    famMembers=my.membres? JSON.parse(JSON.stringify(my.membres)) : famMembers; }
+  else if(!famMembers.length) famMembers=[];
+  const voted=sessionStorage.getItem('cousinade_poll')? JSON.parse(sessionStorage.getItem('cousinade_poll')):[];
   list.innerHTML=DB.poll.dates.map(d=>`
-    <button class="opt ${sessionStorage.getItem('cousinade_poll')===d?'sel':''}" style="display:flex; justify-content:space-between; align-items:center"
-      data-date="${d}" onclick="pickDate(this)">
+    <button class="opt ${voted.includes(d)?'sel':''}" style="display:flex; justify-content:space-between; align-items:center"
+      data-date="${d}" onclick="this.classList.toggle('sel')">
       <span>📅 ${fmtDate(d)}</span>
-      <span class="tag">${(DB.poll.votes[d]||[]).length} vote(s)</span>
+      <span class="tag">${(DB.poll.votes[d]||[]).length} foyer(s)</span>
     </button>`).join('');
+  if(DB.poll.butoir) document.getElementById('pollButoir').textContent='⏳ Réponses attendues avant le '+new Date(DB.poll.butoir+'T12:00').toLocaleDateString('fr-FR',{dateStyle:'long'})+' — la date définitive sera annoncée par e-mail.';
+  renderEnfants(); renderPollResults();
+}
+function renderEnfants(){
+  document.getElementById('enfantsBox').innerHTML=famMembers.map((m,i)=>`
+    <div class="admin-row"><span class="tag">enfant</span>
+      <input data-e="${i}" value="${esc(m.name)}" placeholder="Prénom de l'enfant"
+        oninput="famMembers[${i}].name=this.value"/>
+      <button class="btn danger small" onclick="famMembers.splice(${i},1); renderEnfants()">✕</button>
+    </div>`).join('');
+}
+function addEnfant(){ famMembers.push({name:'', enfant:true}); renderEnfants(); }
+function renderPollResults(){
   const total=Math.max(1,...DB.poll.dates.map(d=>(DB.poll.votes[d]||[]).length));
   const sorted=[...DB.poll.dates].sort((a,b)=>(DB.poll.votes[b]||[]).length-(DB.poll.votes[a]||[]).length);
   document.getElementById('pollResults').innerHTML=sorted.map(d=>{
@@ -363,23 +395,23 @@ function renderPoll(){
       <div class="bar"><i style="width:${Math.round(n/total*100)}%"></i></div></div>`;
   }).join('');
 }
-function pickDate(btn){
-  document.querySelectorAll('#pollList .opt').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
-}
 function confirmPoll(){
-  const prenom=document.getElementById('pollPrenom').value.trim();
-  const sel=document.querySelector('#pollList .opt.sel');
+  const nom=pollNom.value.trim()||'Grandclement', prenom=pollPrenom.value.trim();
+  const sel=[...document.querySelectorAll('#pollList .opt.sel')].map(b=>b.dataset.date);
   if(!prenom) return toast('Indiquez votre prénom 🙂');
-  if(!sel) return toast('Choisissez un week-end 📅');
-  const d=sel.dataset.date;
-  Object.values(DB.poll.votes).forEach(arr=>{ const i=arr.indexOf(prenom); if(i>=0) arr.splice(i,1); });
-  (DB.poll.votes[d]=DB.poll.votes[d]||[]).push(prenom);
+  if(!sel.length) return toast('Choisissez au moins un week-end 📅');
+  const membres=famMembers.filter(m=>m.name.trim()).map(m=>({name:m.name.trim(), enfant:true}));
+  let f=DB.families.find(f=>f.prenom===prenom&&f.nom===nom);
+  const data={nom, conjoint:pollConjoint.value.trim(), membres, email:pollEmail.value.trim()};
+  if(f) Object.assign(f,data);
+  else DB.families.push({id:uid(), prenom, choix:{}, ...data});
+  DB.poll.votes[JSON.stringify([prenom,nom])]=sel;
   sessionStorage.setItem('cousinade_prenom',prenom);
+  sessionStorage.setItem('cousinade_nom',nom);
   sessionStorage.setItem('cousinade_voted','1');
-  sessionStorage.setItem('cousinade_poll',d);
+  sessionStorage.setItem('cousinade_poll',JSON.stringify(sel));
   save(); renderPoll();
-  toast('✓ Vote enregistré — bienvenue sur le site !');
+  toast('✓ Vote enregistré — bienvenue sur le site !'+(data.email?' (notifications e-mail activées)':''));
   go('accueil');
 }
 
@@ -404,16 +436,47 @@ function renderHome(){
 }
 
 /* ---- MENU ---- */
+function currentFamily(){
+  return DB.families.find(f=>f.prenom===(sessionStorage.getItem('cousinade_prenom')||'')
+    && f.nom===(sessionStorage.getItem('cousinade_nom')||''));
+}
+function householdMembers(f){
+  if(!f) return [];
+  const m=[{name:f.prenom, enfant:false}];
+  if(f.conjoint) m.push({name:f.conjoint, enfant:false});
+  (f.membres||[]).forEach(e=>m.push({name:e.name, enfant:true}));
+  return m;
+}
+function menuLocked(){
+  if(sessionStorage.getItem('cousinade_admin')==='1') return false;
+  return DB.poll.butoir && new Date() > new Date(DB.poll.butoir+'T23:59');
+}
 function renderMenu(){
-  const m=DB.menu, secs=[["entree","Choix de l'entrée",m.entrees],["plat","Choix du plat principal",m.plats],
-    ["dessert","Choix du dessert",m.desserts],["fromage","Supplément fromages",m.fromages]];
-  const my=DB.families.find(f=>f.prenom===(sessionStorage.getItem('cousinade_prenom')||''));
-  document.getElementById('inPrenom').value=my?.prenom||''; document.getElementById('inFamille').value=my?.membres||'';
+  const m=DB.menu, f=currentFamily(), members=householdMembers(f);
+  const sel=document.getElementById('memberSel');
+  if(members.length){
+    const cur=sel.value||members[0].name;
+    sel.innerHTML=members.map(mm=>`<option ${mm.name===cur?'selected':''}>${esc(mm.name)}${mm.enfant?' 👶 (enfant)':''}</option>`).join('');
+    sel.disabled=false;
+  } else { sel.innerHTML='<option>— Complétez d\'abord le sondage de date —</option>'; sel.disabled=true; }
+  const member=members.find(x=>x.name===sel.value)||members[0];
+  const isEnfant=member? member.enfant : false;
+  const myChoix=(f&&f.choix&&f.choix[member?.name])||{};
+  const lock=menuLocked();
+  document.getElementById('menuButoir').textContent = DB.poll.butoir
+    ? (lock? '⛔ Date butoir dépassée ('+new Date(DB.poll.butoir+'T12:00').toLocaleDateString('fr-FR')+') : les menus sont validés. Contactez un organisateur pour toute modification.'
+           : '⏳ Menus à valider avant le '+new Date(DB.poll.butoir+'T12:00').toLocaleDateString('fr-FR',{dateStyle:'long'})+'.')
+    : '';
+  const secs=isEnfant
+    ? [["plat","Choix du plat (menu enfant mis en avant)",[MENU_ENFANT,...m.plats]],["dessert","Choix du dessert",m.desserts]]
+    : [["entree","Choix de l'entrée",m.entrees],["plat","Choix du plat principal",m.plats],
+       ["dessert","Choix du dessert",m.desserts],["fromage","Supplément fromages",m.fromages]];
   document.getElementById('menuSections').innerHTML=secs.map(([k,label,items])=>`
     <div class="section"><div class="head"><h3>${label}</h3><span class="tag">${items.length} choix</span></div>
       <div class="optgrid">${items.map(it=>`
-        <button class="opt ${my?.choix?.[k]===it?'sel':''}" data-k="${k}" data-v="${esc(it)}" onclick="pick(this)">${esc(it)}</button>`).join('')}
+        <button class="opt ${myChoix[k]===it?'sel':''}" data-k="${k}" data-v="${esc(it)}" onclick="pick(this)" ${lock?'disabled style="opacity:.5;cursor:not-allowed"':''}>${esc(it)}</button>`).join('')}
       </div></div>`).join('');
+  document.querySelector('#v-menu .btn').style.display=lock?'none':'inline-flex';
   renderRecap();
 }
 function pick(btn){
@@ -422,26 +485,26 @@ function pick(btn){
   btn.classList.add('sel');
 }
 function confirmMenu(){
-  const prenom=document.getElementById('inPrenom').value.trim();
-  if(!prenom) return toast("Indiquez d'abord votre prénom 🙂");
+  const f=currentFamily(), member=document.getElementById('memberSel').value;
+  if(!f||!member) return toast("Complétez d'abord le sondage de date 🗓");
   const choix={};
   ['entree','plat','dessert','fromage'].forEach(k=>{
     const sel=document.querySelector(`.opt[data-k="${k}"].sel`); if(sel) choix[k]=sel.dataset.v;
   });
-  let f=DB.families.find(f=>f.prenom===prenom);
-  if(f){ f.choix=choix; f.membres=document.getElementById('inFamille').value.trim(); }
-  else DB.families.push({id:uid(), prenom, membres:document.getElementById('inFamille').value.trim(), choix});
-  sessionStorage.setItem('cousinade_prenom',prenom);
-  save(); renderRecap(); renderHome(); toast('✓ Choix enregistrés, merci !');
+  f.choix=f.choix||{}; f.choix[member]=choix;
+  save(); renderRecap(); renderHome(); toast('✓ Menu enregistré pour '+member+' !');
 }
 function resetMenu(){ renderMenu(); toast('Formulaire réinitialisé'); }
 function renderRecap(){
   const r=document.getElementById('recapMenu');
-  if(!DB.families.length){ r.innerHTML='<p class="lead">Aucune réponse pour le moment — soyez les premiers !</p>'; return; }
-  r.innerHTML=`<table><tr><th>Foyer</th><th>Entrée</th><th>Plat</th><th>Dessert</th><th>Fromages</th></tr>`+
-    DB.families.map(f=>`<tr><td><b>${esc(f.prenom)}</b><br><small style="color:var(--muted)">${esc(f.membres)}</small></td>
-      <td>${esc(f.choix?.entree||'—')}</td><td>${esc(f.choix?.plat||'—')}</td>
-      <td>${esc(f.choix?.dessert||'—')}</td><td>${esc(f.choix?.fromage||'—')}</td></tr>`).join('')+'</table>';
+  const rows=DB.families.flatMap(f=>householdMembers(f).map(mm=>({f,mm})));
+  if(!rows.length){ r.innerHTML='<p class="lead">Aucune réponse pour le moment — soyez les premiers !</p>'; return; }
+  r.innerHTML=`<table><tr><th>Membre</th><th>Foyer</th><th>Entrée</th><th>Plat</th><th>Dessert</th><th>Fromages</th></tr>`+
+    rows.map(({f,mm})=>{ const c=(f.choix||{})[mm.name]||{};
+      return `<tr><td><b>${esc(mm.name)}</b>${mm.enfant?' <span class="tag">enfant</span>':''}</td>
+      <td>${esc(f.prenom)} ${esc(f.nom)}${f.conjoint?' + '+esc(f.conjoint):''}</td>
+      <td>${esc(c.entree||(mm.enfant?'—':'—'))}</td><td>${esc(c.plat||'—')}</td>
+      <td>${esc(c.dessert||'—')}</td><td>${esc(c.fromage||'—')}</td></tr>`;}).join('')+'</table>';
 }
 
 /* ---- PHOTOS ---- */
@@ -493,6 +556,7 @@ function renderAdmin(){
   const e=DB.event;
   adTitle.value=e.title; adDate.value=e.date; adHours.value=e.hours; adPlace.value=e.place; adHost.value=e.host; adPwd.value=e.password; adAdminPwd.value=e.adminPassword;
   adPollDates.value=DB.poll.dates.join('\n');
+  adButoir.value=DB.poll.butoir||'';
   const lists=[["entrees","Entrées"],["plats","Plats principaux"],["desserts","Desserts"],["fromages","Supplément fromages"]];
   document.getElementById('adMenuLists').innerHTML=lists.map(([k,l])=>`
     <label>${l}</label>
@@ -516,6 +580,7 @@ function delOpt(i){ DB.options.splice(i,1); renderAdminOpts(); }
 function saveAdmin(){
   DB.event={title:adTitle.value, date:adDate.value, hours:adHours.value, place:adPlace.value, host:adHost.value, password:adPwd.value||DB.event.password, adminPassword:adAdminPwd.value||DB.event.adminPassword};
   DB.poll.dates=adPollDates.value.split('\n').map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
+  DB.poll.butoir=adButoir.value||'';
   document.querySelectorAll('[data-menu]').forEach(t=>{ DB.menu[t.dataset.menu]=t.value.split('\n').map(x=>x.trim()).filter(Boolean); });
   DB.options.forEach((o,i)=>{
     document.querySelectorAll(`[data-o="${i}"]`).forEach(inp=> o[inp.dataset.f]=inp.value);
