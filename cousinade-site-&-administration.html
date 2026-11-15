@@ -115,7 +115,8 @@
 <div id="app" style="display:none">
 <header><div class="wrap nav">
   <div class="logo">🔗 Cousinade<span>.fam</span></div>
-  <button class="navlink active" data-v="accueil" onclick="go('accueil')">Accueil</button>
+  <button class="navlink active" data-v="sondage" onclick="go('sondage')">🗓 Sondage date</button>
+  <button class="navlink" data-v="accueil" onclick="go('accueil')">Accueil</button>
   <button class="navlink" data-v="menu" onclick="go('menu')">Menu</button>
   <button class="navlink" data-v="photos" onclick="go('photos')">Photos</button>
   <button class="navlink" data-v="options" onclick="go('options')">Animations</button>
@@ -123,8 +124,25 @@
   <button class="navlink" onclick="logout()">Déconnexion</button>
 </div></header>
 
+<!-- SONDAGE DATE -->
+<section class="view active" id="v-sondage"><div class="wrap">
+  <span class="chip"><span class="dot"></span> Sondage en cours</span>
+  <h2 style="margin:14px 0 6px">Quand aura lieu la prochaine cousinade ? 🗓</h2>
+  <p class="lead">Été 2027 — votez pour le(s) week-end(s) qui vous conviennent parmi les 4 week-ends de juin et les 2 premiers de juillet. Le reste du site s'ouvrira après votre vote !</p>
+  <div class="grid" style="grid-template-columns:1fr 1fr; margin:20px 0">
+    <div><label>Votre prénom</label><input id="pollPrenom" placeholder="Ex : Marie"/></div>
+    <div><label>Prénoms famille / conjoint (facultatif)</label><input id="pollFamille" placeholder="Ex : Paul, Léa"/></div>
+  </div>
+  <div id="pollList" style="display:grid; gap:12px"></div>
+  <button class="btn" style="margin-top:20px" onclick="confirmPoll()">✓ Voter</button>
+  <div class="card" style="margin-top:28px">
+    <h3>📊 Résultats en direct</h3>
+    <div id="pollResults" style="margin-top:12px"></div>
+  </div>
+</div></section>
+
 <!-- ACCUEIL -->
-<section class="view active" id="v-accueil"><div class="wrap">
+<section class="view" id="v-accueil"><div class="wrap">
   <span class="chip blue" id="chipDate">ÉVÉNEMENT</span>
   <h1 style="margin:14px 0 10px" id="titleHome">Cousinade 2026</h1>
   <p class="lead" style="max-width:640px" id="leadHome">Rassemblement familial. Indiquez votre menu, votez pour les animations et partagez vos photos — le tout au même endroit, accessible à toute la famille.</p>
@@ -208,6 +226,8 @@
       <label>Lieu</label><input id="adPlace"/>
       <label>Organisateur</label><input id="adHost"/>
       <label>Mot de passe du site</label><input id="adPwd"/>
+      <label>🗓 Dates du sondage (une par ligne, format AAAA-MM-JJ)</label>
+      <textarea id="adPollDates" rows="4"></textarea>
     </div>
     <div class="card">
       <h3>🍽 Éléments du menu</h3>
@@ -235,6 +255,7 @@
     <h3>🧩 Schéma de la base de données</h3>
 <pre style="color:var(--muted); font-size:12.5px; overflow:auto; margin-top:10px">{
   "event":   { "title", "date", "hours", "place", "host", "password" },
+  "poll":    { "dates": [], "votes": { "date": ["prénom", …] } },
   "menu":    { "entrees":[], "plats":[], "desserts":[], "fromages":[] },
   "options": [ { "id", "name", "desc", "type" } ],
   "families":[ { "id", "prenom", "membres", "choix": { "entree","plat","dessert","fromage","vin" } } ],
@@ -252,8 +273,9 @@
 <script>
 /* ═════════ BASE DE DONNÉES (localStorage) ═════════ */
 const DEFAULT_DB = {
-  event:{ title:"Cousinade 2026", date:"2026-07-04", hours:"12:00 → 23:00",
-    place:"Fontaines-sur-Saône", host:"Julien", password:"cousinade2026" },
+  event:{ title:"Cousinade 2027", date:"2027-07-03", hours:"12:00 → 23:00",
+    place:"Fontaines-sur-Saône", host:"Julien", password:"GloireAmax" },
+  poll:{ dates:["2027-06-05","2027-06-12","2027-06-19","2027-06-26","2027-07-03","2027-07-10"], votes:{} },
   menu:{
     entrees:["Friture d'éperlans sauce tartare",
              "Verticale de légumes confits et tomates, stracciatella crémeuse et chorizo grillé",
@@ -298,16 +320,62 @@ function openApp(){
 
 /* ═════════ NAVIGATION ═════════ */
 function go(v){
+  /* Le sondage de date est obligatoire avant d'accéder au reste du site */
+  if(v!=='sondage' && v!=='admin' && !sessionStorage.getItem('cousinade_voted')){
+    toast('🗳 Votez d\'abord pour la date, puis accédez au reste du site !');
+    v='sondage';
+  }
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
   document.getElementById('v-'+v).classList.add('active');
   document.querySelectorAll('.navlink').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
   window.scrollTo({top:0});
   if(v==='menu') renderMenu(); if(v==='photos') renderPhotos();
   if(v==='options') renderOptions(); if(v==='admin') renderAdmin(); if(v==='accueil') renderHome();
+  if(v==='sondage') renderPoll();
 }
 
 /* ═════════ RENDU ═════════ */
-function renderAll(){ renderHome(); renderMenu(); renderPhotos(); renderOptions(); renderAdmin(); }
+function renderAll(){ renderPoll(); renderHome(); renderMenu(); renderPhotos(); renderOptions(); renderAdmin(); }
+
+/* ---- SONDAGE DATE ---- */
+const fmtDate = d => new Date(d+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+function renderPoll(){
+  const list=document.getElementById('pollList'); if(!list) return;
+  document.getElementById('pollPrenom').value=sessionStorage.getItem('cousinade_prenom')||'';
+  list.innerHTML=DB.poll.dates.map(d=>`
+    <button class="opt ${sessionStorage.getItem('cousinade_poll')===d?'sel':''}" style="display:flex; justify-content:space-between; align-items:center"
+      data-date="${d}" onclick="pickDate(this)">
+      <span>📅 ${fmtDate(d)}</span>
+      <span class="tag">${(DB.poll.votes[d]||[]).length} vote(s)</span>
+    </button>`).join('');
+  const total=Math.max(1,...DB.poll.dates.map(d=>(DB.poll.votes[d]||[]).length));
+  const sorted=[...DB.poll.dates].sort((a,b)=>(DB.poll.votes[b]||[]).length-(DB.poll.votes[a]||[]).length);
+  document.getElementById('pollResults').innerHTML=sorted.map(d=>{
+    const n=(DB.poll.votes[d]||[]).length;
+    return `<div style="margin-bottom:12px"><div style="display:flex; justify-content:space-between; font-size:13px">
+      <span>${fmtDate(d)}</span><b style="color:var(--acc)">${n}</b></div>
+      <div class="bar"><i style="width:${Math.round(n/total*100)}%"></i></div></div>`;
+  }).join('');
+}
+function pickDate(btn){
+  document.querySelectorAll('#pollList .opt').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+function confirmPoll(){
+  const prenom=document.getElementById('pollPrenom').value.trim();
+  const sel=document.querySelector('#pollList .opt.sel');
+  if(!prenom) return toast('Indiquez votre prénom 🙂');
+  if(!sel) return toast('Choisissez un week-end 📅');
+  const d=sel.dataset.date;
+  Object.values(DB.poll.votes).forEach(arr=>{ const i=arr.indexOf(prenom); if(i>=0) arr.splice(i,1); });
+  (DB.poll.votes[d]=DB.poll.votes[d]||[]).push(prenom);
+  sessionStorage.setItem('cousinade_prenom',prenom);
+  sessionStorage.setItem('cousinade_voted','1');
+  sessionStorage.setItem('cousinade_poll',d);
+  save(); renderPoll();
+  toast('✓ Vote enregistré — bienvenue sur le site !');
+  go('accueil');
+}
 
 function renderHome(){
   const e=DB.event;
@@ -418,6 +486,7 @@ function vote(id){
 function renderAdmin(){
   const e=DB.event;
   adTitle.value=e.title; adDate.value=e.date; adHours.value=e.hours; adPlace.value=e.place; adHost.value=e.host; adPwd.value=e.password;
+  adPollDates.value=DB.poll.dates.join('\n');
   const lists=[["entrees","Entrées"],["plats","Plats principaux"],["desserts","Desserts"],["fromages","Supplément fromages"]];
   document.getElementById('adMenuLists').innerHTML=lists.map(([k,l])=>`
     <label>${l}</label>
@@ -440,6 +509,7 @@ function addAdminOpt(){ DB.options.push({id:uid(),name:'',desc:'',type:'anim'});
 function delOpt(i){ DB.options.splice(i,1); renderAdminOpts(); }
 function saveAdmin(){
   DB.event={title:adTitle.value, date:adDate.value, hours:adHours.value, place:adPlace.value, host:adHost.value, password:adPwd.value||DB.event.password};
+  DB.poll.dates=adPollDates.value.split('\n').map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
   document.querySelectorAll('[data-menu]').forEach(t=>{ DB.menu[t.dataset.menu]=t.value.split('\n').map(x=>x.trim()).filter(Boolean); });
   DB.options.forEach((o,i)=>{
     document.querySelectorAll(`[data-o="${i}"]`).forEach(inp=> o[inp.dataset.f]=inp.value);
