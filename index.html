@@ -124,7 +124,7 @@
 <!-- ══════════ APP ══════════ -->
 <div id="app" style="display:none">
 <header><div class="wrap nav">
-  <div class="logo">🔗 Cousinade<span>.fam</span></div>
+  <div class="logo">🔗 Cousinade<span>Grandclement</span></div>
   <button class="navlink active" data-v="sondage" onclick="go('sondage')">🗓 Sondage date</button>
   <button class="navlink" data-v="accueil" onclick="go('accueil')">Accueil</button>
   <button class="navlink" data-v="menu" onclick="go('menu')">Menu</button>
@@ -254,12 +254,26 @@
       <label>⏰ Date butoir de validation des menus</label><input id="adDeadline" type="date"/>
       <label>Mot de passe du site</label><input id="adPwd"/>
       <label>🔒 Mot de passe administrateur</label><input id="adAdminPwd"/>
+      <label>🍽 Prix par adulte (€)</label><input id="adPrixAdulte" type="number" min="0" step="0.5"/>
+      <label>🧒 Prix par enfant (€)</label><input id="adPrixEnfant" type="number" min="0" step="0.5"/>
     </div>
     <div class="card">
-      <h3>🍽 Éléments du menu</h3>
-      <p class="lead" style="font-size:13px">Modifiez librement les propositions. Une ligne vide sera ignorée.</p>
-      <div id="adMenuLists"></div>
+      <h3>🏠 Restaurant / Guinguette</h3>
+      <label>Nom</label><input id="adRestoNom"/>
+      <label>Adresse</label><input id="adRestoAdresse"/>
+      <label>Site web</label><input id="adRestoSite" placeholder="https://…"/>
+      <label>💳 RIB pour les virements (communiqué aux familles)</label>
+      <textarea id="adRib" rows="3" placeholder="IBAN — BIC — Titulaire du compte"></textarea>
+      <h3 style="margin-top:18px">💰 Paiements par foyer</h3>
+      <p class="lead" style="font-size:13px">Validez les virements déclarés par les foyers.</p>
+      <div id="adPayments" style="margin-top:10px"></div>
     </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>🍽 Éléments du menu</h3>
+    <p class="lead" style="font-size:13px">Modifiez librement les propositions. Une ligne vide sera ignorée.</p>
+    <div id="adMenuLists"></div>
   </div>
 
   <div class="card" style="margin-top:16px">
@@ -303,7 +317,10 @@
 const DEFAULT_DB = {
   event:{ title:"Cousinade 2027", date:"2027-07-03", hours:"12:00 → 23:00",
     place:"Fontaines-sur-Saône", host:"Julien", password:"cousinade2027",
-    adminPassword:"GloireAmax", deadline:"2027-05-15" },
+    adminPassword:"GloireAmax", deadline:"2027-05-15",
+    restoNom:"Le Guinguet de la Saône", restoAdresse:"Quai de Saône, Fontaines-sur-Saône",
+    restoSite:"https://www.exemple-resto.fr", rib:"FR76 1234 5678 9012 3456 7890 123 — BIC ABCDEFGG",
+    prixAdulte:35, prixEnfant:18 },
   poll:{ dates:["2027-06-05","2027-06-12","2027-06-19","2027-06-26","2027-07-03","2027-07-10"], votes:{} },
   menu:{
     entrees:["Friture d'éperlans sauce tartare",
@@ -346,6 +363,7 @@ function migrate(db){
   ['families','options','photos'].forEach(k=>{ if(!Array.isArray(db[k])) db[k]=d[k]; });
   db.families.forEach(f=>{ f.enfants=Array.isArray(f.enfants)? f.enfants:[]; f.choix=f.choix||{}; f.nom=f.nom||'Grandclement'; f.conjoint=f.conjoint||''; f.email=f.email||''; });
   if(!db.votes || typeof db.votes!=='object') db.votes={};
+  if(!db.payments || typeof db.payments!=='object') db.payments={};
   return db;
 }
 function save(){ localStorage.setItem('cousinade_db', JSON.stringify(DB)); }
@@ -478,6 +496,7 @@ function renderHome(){
   document.getElementById('tblInfos').innerHTML=`
     <tr><th>Date</th><td>${fmtDate(e.date)} · ${esc(e.hours)}</td></tr>
     <tr><th>Lieu</th><td>📍 ${esc(e.place)}</td></tr>
+    ${e.restoNom?`<tr><th>Restaurant</th><td>🍽 ${esc(e.restoNom)}${e.restoAdresse?' — '+esc(e.restoAdresse):''}${e.restoSite?` — <a href="${esc(e.restoSite)}" target="_blank" style="color:var(--acc2)">site web</a>`:''}</td></tr>`:''}
     <tr><th>Organisateur</th><td>${esc(e.host)}</td></tr>
     <tr><th>Date butoir menus</th><td>⏰ ${fmtDate(e.deadline)}</td></tr>
     <tr><th>Accès</th><td>Sur invitation — mot de passe communiqué par les organisateurs</td></tr>`;
@@ -569,14 +588,40 @@ function resetMenu(){ renderMenu(); toast('Formulaire réinitialisé'); }
 function renderRecap(){
   const r=document.getElementById('recapMenu');
   if(!DB.families.length){ r.innerHTML='<p class="lead">Aucune réponse pour le moment — soyez les premiers !</p>'; return; }
-  r.innerHTML=DB.families.map(f=>{
-    const rows=Object.entries(f.choix).map(([p,c])=>`
+  const eur=n=>n.toFixed(2).replace('.',',')+' €';
+  const rows=DB.families.map(f=>{
+    const pay=DB.payments[f.id]||{};
+    const price=foyerPrice(f);
+    const statut = pay.confirmed
+      ? '<span style="color:var(--ok)">✓ Payé (validé)</span>'
+      : pay.declared ? '<span style="color:var(--warn)">⏳ Virement déclaré</span>'
+      : '<span style="color:var(--muted)">En attente</span>';
+    const lines=Object.entries(f.choix||{}).map(([p,c])=>`
       <tr><td><b>${esc(p)}</b>${f.enfants.includes(p)?' <span class="tag kid">enfant</span>':''}
-        ${p===f.prenom?`<br><small style="color:var(--muted)">foyer ${esc(f.nom)}${f.conjoint?' · '+esc(f.conjoint):''}</small>`:''}</td>
+        ${p===f.prenom?`<br><small style="color:var(--muted)">foyer ${esc(f.prenom)} ${esc(f.nom)}${f.conjoint?' · '+esc(f.conjoint):''}</small>`:''}</td>
       <td>${esc(c.entree||'—')}</td><td>${esc(c.plat||'—')}</td>
-      <td>${esc(c.dessert||'—')}</td><td>${esc(c.fromage||'—')}</td></tr>`).join('');
-    return (rows?`<tr><th colspan="5" style="color:var(--acc)">Foyer ${esc(f.prenom)} ${esc(f.nom)}</th></tr>`+rows:'');
-  }).join('') || '<p class="lead">Aucun menu renseigné pour le moment.</p>';
+      <td>${esc(c.dessert||'—')}</td><td>${esc(c.fromage||'—')}</td>
+      <td>${eur(memberPrice(f,p,c))}</td>
+      <td rowspan="${Object.keys(f.choix).length}">${statut}
+        ${!pay.confirmed?`<br><button class="btn ghost small" style="margin-top:6px" onclick="declarePay('${f.id}')">💳 J'ai payé</button>`:''}</td></tr>`).join('');
+    return (lines?`<tr><th colspan="7" style="color:var(--acc)">Foyer ${esc(f.prenom)} ${esc(f.nom)} — total : <b>${eur(price)}</b></th></tr>`+lines:'');
+  }).join('');
+  const total=DB.families.reduce((a,f)=>a+foyerPrice(f),0);
+  r.innerHTML=`<table><tr><th>Personne</th><th>Entrée</th><th>Plat</th><th>Dessert</th><th>Fromages</th><th>Prix</th><th>Paiement</th></tr>`
+    +(rows||'<tr><td colspan="7" style="color:var(--muted)">Aucun menu renseigné pour le moment.</td></tr>')
+    +`<tr><th colspan="5">Total général</th><th colspan="2">${eur(total)}</th></tr></table>`
+    +(DB.event.rib?`<div class="banner ok" style="margin-top:14px">💳 Paiement par virement — RIB : <b>${esc(DB.event.rib)}</b></div>`:'');
+}
+function prixPlat(s){ const m=/\+(\d+(?:[.,]\d+)?)\s*€/.exec(s||''); return m? parseFloat(m[1].replace(',','.')):0; }
+function memberPrice(f,p,c){
+  const base=f.enfants.includes(p)? (+DB.event.prixEnfant||0) : (+DB.event.prixAdulte||0);
+  return base + prixPlat(c.plat) + prixPlat(c.fromage);
+}
+function foyerPrice(f){ return Object.entries(f.choix||{}).reduce((a,[p,c])=>a+memberPrice(f,p,c),0); }
+function declarePay(id){
+  DB.payments[id]=DB.payments[id]||{declared:false,confirmed:false};
+  DB.payments[id].declared=true;
+  save(); renderRecap(); toast('💳 Virement déclaré — l\'administrateur va le valider.');
 }
 
 /* ═════════ PHOTOS ═════════ */
@@ -629,11 +674,32 @@ function renderAdmin(){
   adTitle.value=e.title; adDate.value=e.date; adHours.value=e.hours; adPlace.value=e.place;
   adHost.value=e.host; adPwd.value=e.password; adAdminPwd.value=e.adminPassword;
   adDeadline.value=e.deadline||''; adPollDates.value=DB.poll.dates.join('\n');
+  adPrixAdulte.value=e.prixAdulte??0; adPrixEnfant.value=e.prixEnfant??0;
+  adRestoNom.value=e.restoNom||''; adRestoAdresse.value=e.restoAdresse||''; adRestoSite.value=e.restoSite||''; adRib.value=e.rib||'';
+  renderAdminPayments();
   const lists=[["entrees","Entrées"],["plats","Plats principaux"],["desserts","Desserts"],["fromages","Supplément fromages"],["enfants","Menus enfant"]];
   document.getElementById('adMenuLists').innerHTML=lists.map(([k,l])=>`
     <label>${l}</label>
     <textarea rows="3" data-menu="${k}">${esc(DB.menu[k].join('\n'))}</textarea>`).join('');
   renderAdminOpts();
+}
+function renderAdminPayments(){
+  const box=document.getElementById('adPayments'); if(!box) return;
+  const eur=n=>n.toFixed(2).replace('.',',')+' €';
+  box.innerHTML = DB.families.length? DB.families.map(f=>{
+    const pay=DB.payments[f.id]||{};
+    return `<div class="admin-row">
+      <span style="flex:1"><b>${esc(f.prenom)} ${esc(f.nom)}</b> — ${eur(foyerPrice(f))}
+        ${pay.confirmed?'<span style="color:var(--ok)"> ✓ validé</span>': pay.declared?'<span style="color:var(--warn)"> ⏳ déclaré</span>':''}</span>
+      <button class="btn ${pay.confirmed?'danger':'ghost'} small" onclick="togglePay('${f.id}')">${pay.confirmed?'Invalider':'Valider le virement'}</button>
+    </div>`;
+  }).join('') : '<p class="lead" style="font-size:13px">Aucun foyer inscrit pour le moment.</p>';
+}
+function togglePay(id){
+  DB.payments[id]=DB.payments[id]||{declared:false,confirmed:false};
+  DB.payments[id].confirmed=!DB.payments[id].confirmed;
+  if(DB.payments[id].confirmed) DB.payments[id].declared=true;
+  save(); renderAdminPayments(); renderRecap();
 }
 function renderAdminOpts(){
   document.getElementById('adOpts').innerHTML=DB.options.map((o,i)=>`
@@ -652,7 +718,8 @@ function delOpt(i){ DB.options.splice(i,1); renderAdminOpts(); }
 function saveAdmin(){
   DB.event={title:adTitle.value, date:adDate.value, hours:adHours.value, place:adPlace.value, host:adHost.value,
     password:adPwd.value||DB.event.password, adminPassword:adAdminPwd.value||DB.event.adminPassword,
-    deadline:adDeadline.value};
+    deadline:adDeadline.value, prixAdulte:+adPrixAdulte.value||0, prixEnfant:+adPrixEnfant.value||0,
+    restoNom:adRestoNom.value, restoAdresse:adRestoAdresse.value, restoSite:adRestoSite.value, rib:adRib.value};
   DB.poll.dates=adPollDates.value.split('\n').map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
   DB.options.forEach((o,i)=>{
     document.querySelectorAll(`[data-o="${i}"]`).forEach(inp=> o[inp.dataset.f]=inp.value);
